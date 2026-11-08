@@ -1,106 +1,60 @@
-======================================================
-  CYCLE — FREE UNTRACEABLE PERIOD TRACKER
-  Created by Spoon Labs
-======================================================
+# Cycle
 
-Cycle is 100% free. No strings attached.
+**A period tracker that can't leak your data, because it never has any to leak.**
 
-This application is a single, self-contained HTML file.
-There are no servers, no accounts, and no internet
-connection of any kind. Your data is stored exclusively
-on your device and nowhere else.
+Cycle runs entirely on your phone. There are no accounts, no servers, no analytics and no ads. What you log is stored only in your browser on your device. Nobody else has a copy: not us, not an app store, not a cloud backup. That means nobody can sell it, subpoena it from us, or lose it in a breach.
 
-To get the full, native app experience, follow the
-installation instructions for your device below.
+**[Open Cycle →](https://thedarkone26.github.io/cycle-period-tracker/)**
 
+## Why this exists
 
-------------------------------------------------------
-  FOR iOS (iPHONE / iPAD)
-------------------------------------------------------
+Period tracking apps hold some of the most sensitive health data there is, and most of them store it on company servers. Since *Roe v. Wade* was overturned, that data can be requested by courts and law enforcement. Cycle is built so that the only copy is in your hands.
 
-1. Unzip the downloaded folder.
+## Features
 
-2. Tap the 'cycle.html' file to open it in Safari.
+- **Period, flow, symptom and note logging** with a monthly calendar
+- **Predictions** for your next period, fertile window and estimated ovulation, based on your last six cycles
+- **Handles real life:** log every day of your period or just the first day; a forgotten month doesn't throw off predictions; shows when you're late
+- **Irregular cycle notice** when your cycles vary by a week or more
+- **Backup and restore** to a file you keep, with merge or replace
+- **Instant wipe** of everything on the device
+- **Works offline** and installs to your home screen like a normal app
 
-   IMPORTANT: You must use Safari. Other browsers
-   (Chrome, Firefox, etc.) do not support the "Add to
-   Home Screen" feature on iOS.
+## Install it on your phone
 
-3. Tap the Share button at the bottom of the screen
-   (the square with an arrow pointing upward).
+**iPhone (Safari):** open the link above → tap **Share** → **Add to Home Screen** → **Add**.
 
-4. Scroll down and tap "Add to Home Screen."
+**Android (Chrome):** open the link above → tap **⋮** → **Add to Home screen** (or **Install app**).
 
-5. Tap "Add" in the top right corner.
+After the first visit it works with no internet connection at all, including in airplane mode.
 
-Cycle will now appear as an app icon on your home
-screen. Open it from there for a full-screen,
-distraction-free experience.
+## How your privacy is protected
 
+| | |
+|---|---|
+| **Storage** | Your entries live in your browser's `localStorage` on your device only. |
+| **Network** | The app makes no network requests. A Content Security Policy in the page blocks it from contacting any server, even by accident. |
+| **Hosting** | The page is served by GitHub Pages. Like any website, GitHub sees that the page was loaded; it never sees anything you log. You can also download `index.html` and host it yourself. |
+| **No third parties** | No analytics, fonts, trackers or libraries are loaded from anywhere. |
+| **Check it yourself** | It's one HTML file. Read the source, or turn on airplane mode and use it. |
 
-------------------------------------------------------
-  FOR ANDROID
-------------------------------------------------------
+**Things to know**
 
-1. Unzip the downloaded folder.
+- Anyone who can unlock your phone can open the app. A passcode lock is on the roadmap.
+- Clearing your browser's site data deletes your entries. Use **Settings → Download Backup** now and then, and keep that file somewhere safe.
+- Backup files contain your full history in plain text. Treat them like the private records they are.
+- Predictions are estimates based on your past cycles. **Do not use them as birth control.**
 
-2. Open the 'cycle.html' in Google Chrome.
+## Roadmap
 
-3. Tap the three-dot menu icon in the top right corner.
+- [ ] Optional passcode lock with on-device encryption
+- [ ] Discreet mode (neutral app name and icon)
+- [ ] Track period end dates and period length automatically
 
-4. Tap "Add to Home Screen."
+## Support
 
-5. Confirm by tapping "Add."
+Cycle is free and always will be. If it helps you, you can [leave a tip on Cash App](https://cash.app/$deweyspoon87).
 
-Cycle will now appear as an app icon on your home
-screen. Open it from there for a full-screen experience.
+## License
 
-
-------------------------------------------------------
-  PRIVACY & DATA — READ THIS
-------------------------------------------------------
-
-YOUR DATA IS LOCAL ONLY
-  Cycle stores everything in your browser's local
-  storage. Nothing is ever transmitted anywhere.
-  You can verify this by running the app in Airplane
-  Mode — it works identically offline.
-
-CLEARING YOUR BROWSER WILL DELETE YOUR DATA
-  Unlike a cloud app, there is no backup copy on a
-  server. If you clear your browser's cache, history,
-  or site data, your Cycle logs will be permanently
-  deleted. There is no way to recover them after this.
-
-BACK UP REGULARLY
-  Use the "Download Backup" button inside the Settings
-  tab to save a local JSON copy of your data. Store it
-  somewhere safe (your Files app, a USB drive, etc.).
-  You can restore from any backup at any time using the
-  "Restore from Backup" button in the same tab.
-
-ONE-TAP WIPE
-  The "Wipe Data" button in the top right corner of the
-  app instantly and permanently deletes all local
-  storage. Use it if you ever need to erase your history
-  quickly.
-
-NO ACCOUNT NEEDED
-  Cycle has no login, no registration, and no user ID
-  of any kind. Spoon Labs has no way to identify you,
-  contact you, or access your data — because we never
-  receive it in the first place.
-
-
-------------------------------------------------------
-  SUPPORT THE PROJECT
-------------------------------------------------------
-
-Cycle is free forever, but if it helps you and you'd
-like to say thanks, tips are always appreciated!
-
-  Cash App: $deweyspoon87
-
-Thank you for using Cycle. 🩷
-
-======================================================
+[MIT](LICENSE) © Spoon Labs

@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<!-- Blocks every network request except loading this app's own files. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
 
 <!-- iOS PWA: true full-screen home screen experience -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -700,6 +706,9 @@
         <span style="font-size:11px;color:var(--accent);opacity:0.45">▪ Predicted</span>
         <span style="font-size:11px;color:var(--safe)">▪ Fertile Window</span>
         <span style="font-size:11px;color:var(--safe);font-weight:bold">◉ Ovulation Est.</span>
+        <span style="font-size:10px;color:var(--muted);line-height:1.5;flex-basis:100%">
+          Predictions are estimates from your past cycles. Don't use them as birth control.
+        </span>
       </div>
     </section>
   </div>
@@ -983,52 +992,87 @@ function getPeriodMap() {
   return map;
 }
 
+// Period days logged close together belong to the same period. A new cycle
+// starts only when the previous logged period day is at least this many days back.
+const NEW_CYCLE_GAP = 10;
+// Cycle lengths outside this range are almost always a missed log, not a real cycle.
+const PLAUSIBLE_CYCLE = [15, 60];
+// How many recent cycles the average is based on.
+const AVG_WINDOW = 6;
+
+// Start date of every period (first day of each run of logged period days).
+function getCycleStarts() {
+  const days = [...new Set(getPeriodDates())];
+  const starts = [];
+  for (let i = 0; i < days.length; i++) {
+    if (i === 0 || diffDays(days[i-1], days[i]) >= NEW_CYCLE_GAP) starts.push(days[i]);
+  }
+  return starts;
+}
+
+// Lengths of completed cycles, with implausible ones (missed logs) dropped.
+function getCycleLengths() {
+  const starts = getCycleStarts();
+  const lens = [];
+  for (let i = 1; i < starts.length; i++) {
+    const len = diffDays(starts[i-1], starts[i]);
+    if (len >= PLAUSIBLE_CYCLE[0] && len <= PLAUSIBLE_CYCLE[1]) lens.push(len);
+  }
+  // With enough history, also drop cycles far from the typical one. A 56-day gap
+  // between 28-day cycles is a forgotten log, and it would skew every prediction.
+  if (lens.length >= 3) {
+    const sorted = [...lens].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    return lens.filter(l => l >= median * 0.6 && l <= median * 1.5);
+  }
+  return lens;
+}
+
 function computeCycleInfo() {
   const s = getSettings();
-  const periods = getPeriodDates();
-  if (!periods.length) return null;
+  const starts = getCycleStarts();
+  if (!starts.length) return null;
 
-  const lastPeriod = periods[periods.length - 1];
+  const lastPeriod = starts[starts.length - 1];
   const td = today();
 
-  let avgCycle = s.cycleLen;
-  if (periods.length >= 2) {
-    let total = 0;
-    for (let i = 1; i < periods.length; i++) total += diffDays(periods[i-1], periods[i]);
-    avgCycle = Math.round(total / (periods.length - 1));
-  }
+  const recent = getCycleLengths().slice(-AVG_WINDOW);
+  const avgCycle = recent.length
+    ? Math.round(recent.reduce((a, b) => a + b, 0) / recent.length)
+    : s.cycleLen;
 
   const dayOfCycle    = diffDays(lastPeriod, td) + 1;
   const nextPeriod    = addDays(lastPeriod, avgCycle);
   const daysUntilNext = diffDays(td, nextPeriod);
-  const ovulationDay  = avgCycle - s.lutealLen;
-  const fertileStart  = ovulationDay - 2;
+  // Cycle day (1 = first day of period) of estimated ovulation and the fertile window.
+  const ovulationDay  = Math.max(1, avgCycle - s.lutealLen);
+  const fertileStart  = Math.max(1, ovulationDay - 5);
   const fertileEnd    = ovulationDay + 1;
 
-  const d = ((dayOfCycle - 1) % avgCycle) + 1;
+  const d = dayOfCycle;
   let phase;
-  if (d <= s.periodLen)       phase = 'Menstrual';
-  else if (d < fertileStart)  phase = 'Follicular';
-  else if (d === ovulationDay) phase = 'Ovulation';
-  else if (d <= fertileEnd)   phase = 'Fertile';
-  else                         phase = 'Luteal';
+  if (d < 1)                    phase = 'Upcoming';
+  else if (daysUntilNext < 0)   phase = 'Late';
+  else if (d <= s.periodLen)    phase = 'Menstrual';
+  else if (d < fertileStart)    phase = 'Follicular';
+  else if (d === ovulationDay)  phase = 'Ovulation';
+  else if (d <= fertileEnd)     phase = 'Fertile';
+  else                          phase = 'Luteal';
 
   return {
-    lastPeriod, nextPeriod, avgCycle,
+    lastPeriod, nextPeriod, avgCycle, cyclesUsed: recent.length,
     dayOfCycle: Math.max(1, dayOfCycle),
     daysUntilNext, phase, ovulationDay, fertileStart, fertileEnd,
     phasePct: Math.max(0, Math.min(100, ((d - 1) / avgCycle) * 100)),
-    periods
+    starts
   };
 }
 
-// Detect cycle irregularity (range >= 7 days across logged cycles)
+// Detect cycle irregularity (range >= 7 days across recent cycles)
 function getCycleIrregularity() {
-  const periods = getPeriodDates();
-  if (periods.length < 3) return null;
-  const gaps = [];
-  for (let i = 1; i < periods.length; i++) gaps.push(diffDays(periods[i-1], periods[i]));
-  const min = Math.min(...gaps), max = Math.max(...gaps);
+  const lens = getCycleLengths().slice(-AVG_WINDOW);
+  if (lens.length < 2) return null;
+  const min = Math.min(...lens), max = Math.max(...lens);
   return (max - min >= 7) ? { range: max - min, min, max } : null;
 }
 
@@ -1059,18 +1103,18 @@ function renderCalendar() {
 
   if (info) {
     const { lastPeriod, avgCycle, ovulationDay, fertileStart, fertileEnd } = info;
-    for (let c = 1; c <= 3; c++) {
+    // c = 0 is the current cycle, 1..3 are predicted future cycles.
+    // Cycle day N falls on addDays(cycleStart, N - 1).
+    for (let c = 0; c <= 3; c++) {
       const cycleStart = addDays(lastPeriod, avgCycle * c);
-      for (let d = 0; d < s.periodLen; d++) {
-        const day = addDays(cycleStart, d);
-        if (!periodSet.has(day)) predictedSet.add(day);
+      if (c > 0) {
+        for (let d = 0; d < s.periodLen; d++) {
+          const day = addDays(cycleStart, d);
+          if (!periodSet.has(day)) predictedSet.add(day);
+        }
       }
-      for (let d = fertileStart; d <= fertileEnd; d++) fertileSet.add(addDays(cycleStart, d - s.periodLen));
-      ovulSet.add(addDays(cycleStart, ovulationDay - s.periodLen));
-    }
-    if (info.dayOfCycle > 0) {
-      for (let d = fertileStart; d <= fertileEnd; d++) fertileSet.add(addDays(lastPeriod, d - 1));
-      ovulSet.add(addDays(lastPeriod, ovulationDay - 1));
+      for (let d = fertileStart; d <= fertileEnd; d++) fertileSet.add(addDays(cycleStart, d - 1));
+      ovulSet.add(addDays(cycleStart, ovulationDay - 1));
     }
   }
 
@@ -1154,12 +1198,21 @@ function renderDashboard() {
     return;
   }
 
-  const phaseColors = { Menstrual:'var(--accent)', Follicular:'var(--soft)', Fertile:'var(--safe)', Ovulation:'var(--safe)', Luteal:'#a78bfa' };
+  const phaseColors = { Menstrual:'var(--accent)', Follicular:'var(--soft)', Fertile:'var(--safe)', Ovulation:'var(--safe)', Luteal:'#a78bfa', Late:'var(--warn)', Upcoming:'var(--soft)' };
   const col = phaseColors[info.phase] || 'var(--accent)';
 
-  mainEl.innerHTML = `<span class="highlight" style="color:${col}">${info.phase} Phase</span>`;
-  subEl.textContent = info.daysUntilNext <= 0
-    ? 'Your period may have started or is overdue.'
+  const late = -info.daysUntilNext;
+  mainEl.innerHTML = info.phase === 'Late'
+    ? `<span class="highlight" style="color:${col}">${late} day${late===1?'':'s'} late</span>`
+    : info.phase === 'Upcoming'
+    ? `<span class="highlight" style="color:${col}">Logged ahead</span>`
+    : `<span class="highlight" style="color:${col}">${info.phase} Phase</span>`;
+  subEl.textContent = info.phase === 'Upcoming'
+    ? `Your latest logged period starts ${formatDateDisplay(info.lastPeriod)}.`
+    : info.phase === 'Late'
+    ? `Expected ${formatDateDisplay(info.nextPeriod)}. Log it when it starts. Cycles shift for lots of reasons (stress, travel, illness).`
+    : info.daysUntilNext === 0
+    ? 'Your period is expected today.'
     : info.daysUntilNext <= 5
     ? `Period expected in ${info.daysUntilNext} day${info.daysUntilNext===1?'':'s'}. Last started ${formatDateDisplay(info.lastPeriod)}.`
     : `Next period estimated ${formatDateDisplay(info.nextPeriod)}.`;
@@ -1199,9 +1252,11 @@ function renderHistory() {
     let label = entry.type;
     if (entry.type === 'symptom' && entry.symptoms?.length) label = entry.symptoms.slice(0,3).join(', ');
     if (entry.type === 'note'    && entry.text)             label = entry.text.slice(0, 40) + (entry.text.length > 40 ? '…' : '');
+    label = escapeHTML(label);
 
-    const flowBadge = (entry.type === 'period' && entry.flow)
-      ? `<span class="flow-badge ${entry.flow}">${entry.flow}</span>` : '';
+    const flow = ['light','medium','heavy'].includes(entry.flow) ? entry.flow : '';
+    const flowBadge = (entry.type === 'period' && flow)
+      ? `<span class="flow-badge ${flow}">${flow}</span>` : '';
 
     el.innerHTML = `
       <div class="history-date">${formatDateDisplay(entry.date)}</div>
@@ -1214,6 +1269,11 @@ function renderHistory() {
 }
 
 function deleteEntry(idx) { removeEntry(idx); refreshAll(); toast('Entry deleted'); }
+
+// Notes and imported backups are user text: never put them into innerHTML unescaped.
+function escapeHTML(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
 
 // ══════════════════════════════════════════════
 //  SYMPTOMS
@@ -1460,6 +1520,11 @@ function refreshAll() {
   document.getElementById('note-date-input').value   = td;
   renderSymptomGrid();
   refreshAll();
+
+  // Offline support when served from a website (not available when opened as a local file).
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 })();
 </script>
 </body>
